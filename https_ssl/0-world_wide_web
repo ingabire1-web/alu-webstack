@@ -1,23 +1,31 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2086
-# Displays the DNS record type and destination for one or more subdomains
-# Usage: ./0-world_wide_web <domain> [subdomain]
+# 0-world_wide_web - displays DNS record info for subdomains of a domain
 
 domain=$1
 subdomain=$2
 
-# Prints "The subdomain X is a TYPE record and points to DEST" for a subdomain
-display_subdomain_info() {
-    sub=$1
-    result=$(dig $sub.$domain | awk '/^;; ANSWER SECTION:/{getline; print $4, $5}')
-    read -r type dest <<< "$result"
-    echo "The subdomain $sub is a $type record and points to $dest"
+print_subdomain_info() {
+    local sub=$1
+    local dom=$2
+    local host="${sub}.${dom}"
+    local result
+
+    result=$(dig "$host" | awk '
+        /^;; ANSWER SECTION:/ { found=1; next }
+        found && NF >= 4 { print $4, $5; exit }
+    ')
+
+    local record_type destination
+    record_type=$(echo "$result" | awk '{print $1}')
+    destination=$(echo "$result" | awk '{print $2}')
+
+    echo "The subdomain ${sub} is a ${record_type} record and points to ${destination}"
 }
 
 if [ -n "$subdomain" ]; then
-    display_subdomain_info "$subdomain"
+    print_subdomain_info "$subdomain" "$domain"
 else
-    for s in www lb-01 web-01 web-02; do
-        display_subdomain_info "$s"
+    for sub in www lb-01 web-01 web-02; do
+        print_subdomain_info "$sub" "$domain"
     done
 fi
